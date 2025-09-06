@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>لوحة تقدم خطة إدارة الليدز</title>
+    <!-- Tailwind via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React 18 + Babel (لتشغيل JSX بدون build) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+
+    <script type="text/babel">
+      // ——————————————————————————————————————————————
+      // بيانات المراحل (تم حذف بند إزالة التكرار من المرحلة 1)
+      const PHASES = [
+        {
+          id: "p1",
+          title:
+            "المرحلة 1: حسابات المنصّات + صلاحيات الـAPI + أتمتة سحب الليدز وربطها بقاعدة البيانات (Supabase)",
+          sections: [
+            {
+              id: "p1A",
+              title: "A) إعداد الوصول والمنصّات",
+              items: [
+                { id: "p1A1", text: "إنشاء/تأكيد حسابات المطوّرين: TikTok, Meta, Google Ads, Snapchat", done: true },
+                { id: "p1A2", text: "إنشاء التطبيقات وتعيين Redirect URIs للـOAuth 2.0", done: true },
+                { id: "p1A3", text: "تفعيل الصلاحيات/Scopes اللازمة لقراءة الـLeads لكل منصة", done: true },
+                { id: "p1A4", text: "إعداد مفاتيح وسكرتات التطبيقات في مدير أسرار (Env Vars)", done: true },
+                { id: "p1A5", text: "توثيق خطوات التجديد التلقائي للـAccess Tokens (Refresh Tokens)", done: true },
+              ],
+            },
+            {
+              id: "p1B",
+              title: "B) خطوط إدخال البيانات (Webhooks/Polling)",
+              items: [
+                { id: "p1B1", text: "Webhook استقبال ليدز: /webhooks/meta , /webhooks/tiktok", done: true },
+                { id: "p1B2", text: "Jobs/Polling عند الحاجة: Snapchat, Google Ads (لا يتوفر Webhook)", done: true },
+                { id: "p1B3", text: "إدارة الـRate Limits وإعادة المحاولة (Retry with backoff)", done: true },
+              ],
+            },
+            {
+              id: "p1C",
+              title: "C) قاعدة البيانات (Supabase)",
+              items: [
+                { id: "p1C1", text: "إنشاء مخطط الجداول (Leads) بالحقلـــة", done: true },
+                { id: "p1C2", text: "فهارس/Indexing على (source, campaign_id, time)", done: true },
+                // (تم حذف p1C3 حسب طلبك)
+              ],
+            },
+            {
+              id: "p1D",
+              title: "D) خدمة الربط (FastAPI)",
+              items: [
+                { id: "p1D1", text: "مسارات OAuth: /auth/authorize , /auth/callback لكل منصة", done: true },
+                { id: "p1D2", text: "نقاط إدخال بيانات موحّدة: /ingest/leads", done: true },
+                { id: "p1D3", text: "توحيد الحقول (الهاتف E.164، البريد lowercase/trim، الوقت UTC مع عرض GMT+3)", done: true },
+                { id: "p1D4", text: "سجلات ومراقبة: Logging + مقاييس أخطاء/معدّل السحب", done: true },
+                { id: "p1D5", text: "اختبارات وحدة (Unit) وPayloads وهمية من كل منصة", done: true },
+              ],
+            },
+            {
+              id: "p1E",
+              title: "E) ربط ليدز الموقع الالكتروني",
+              items: [
+                { id: "p1E1", text: "ويبهوك على الموقع لإرسال بيانات الليدز الجديدة (منفّذة من فريق الموقع)", done: true },
+                { id: "p1E2", text: "ويبهوك استقبال خاص بالموقع وربطه مع قاعدة البيانات الموحدة", done: true },
+              ],
+            },
+          ],
+        },
+        {
+          id: "p2",
+          title: "المرحلة 2: إعداد Odoo CRM + ربط البيانات المباشر من المنصّات للـCRM + اختبارات التكامل",
+          sections: [
+            {
+              id: "p2A",
+              title: "A) إعداد Odoo (فريق تطوير Odoo)",
+              items: [
+                { id: "p2A1", text: "تجهيز بيئة Odoo", done: true },
+                { id: "p2A2", text: "تفعيل/تهيئة تطبيق CRM والـPipelines والمراحل", done: true },
+                { id: "p2A3", text: "إنشاء الحقول المخصصة (Custom Fields) لتطابق مخطط Supabase", done: true },
+                { id: "p2A4", text: "قواعد الإسناد: توزيع الليدز تلقائياً على فريق الكول سنتر بحسب المصدر/الحملة", done: false },
+                { id: "p2A5", text: "إنشاء أنشطة تلقائية (Activities) ومهام للفريق التسويقي عند ليد جديد", done: false },
+              ],
+            },
+            {
+              id: "p2B",
+              title: "B) التكامل (FastAPI ↔ Odoo)",
+              items: [
+                { id: "p2B1", text: "موصل Push: عند وصول ليد لـSupabase يُرسل JSON لـOdoo (JSON-RPC/REST)", done: true },
+                { id: "p2B2", text: "معالجة حالات الفشل (Retries + DLQ)", done: true },
+                { id: "p2B3", text: "خرائط الحقول (Mapping): source/campaign_id/ad_id/cpl تظهر بوضوح على بطاقة الـLead", done: false },
+              ],
+            },
+            {
+              id: "p2C",
+              title: "C) إظهار بيانات المنصّات مباشرة على CRM",
+              items: [
+                { id: "p2C1", text: "بطاقة ليد تعرض: المصدر، الحملة، الإعلان، CPL، وقت الوصول", done: false },
+                { id: "p2C2", text: "روابط سريعة لتقرير الأداء (Dashboard داخلي لاحقًا)", done: false },
+                { id: "p2C3", text: "فلترة داخل Odoo حسب المصدر/الحملة/الفترة", done: false },
+              ],
+            },
+            {
+              id: "p2D",
+              title: "D) اختبارات تكامل شاملة",
+              items: [
+                { id: "p2D1", text: "سيناريو Meta Lead Ads → Webhook → Supabase → Odoo", done: false },
+                { id: "p2D2", text: "سيناريو TikTok Lead Gen → Webhook → Supabase → Odoo", done: false },
+                { id: "p2D3", text: "سيناريو Snapchat/Google Ads (Polling) → Supabase → Odoo", done: false },
+                { id: "p2D4", text: "سيناريو الموقع الالكتروني → Supabase → Odoo", done: false },
+              ],
+            },
+          ],
+        },
+        {
+          id: "p3",
+          title: "المرحلة 3: إطلاق النسخة الحيّة + تدريب فريق خدمة العملاء",
+          sections: [
+            {
+              id: "p3A",
+              title: "A) الإطلاق الحي (Live)",
+              items: [
+                { id: "p3A1", text: "تفعيل ال CRM على نطاق الإنتاج", done: false },
+                { id: "p3A2", text: "مراقبة التوافر/التنبيهات (Uptime + Error rate)", done: false },
+              ],
+            },
+            {
+              id: "p3B",
+              title: "B) فحص ما قبل الإطلاق",
+              items: [
+                { id: "p3B1", text: "اختبار نهاية-إلى-نهاية على الإنتاج بحملات/نماذج حقيقية", done: false },
+                { id: "p3B2", text: "مراجعة الأذونات والامتثال", done: false },
+                { id: "p3B3", text: "خطة تراجع (Rollback) واضحة", done: false },
+              ],
+            },
+            {
+              id: "p3C",
+              title: "C) تدريب فريق خدمة العملاء",
+              items: [
+                { id: "p3C1", text: "قائمة تشغيل فيديوهات قصيرة (2–5 دقائق لكل موضوع)", done: false },
+                { id: "p3C2", text: "ورش عمل مصغّرة (حالات واقعية + أسئلة وأجوبة)", done: false },
+                { id: "p3C3", text: "قياس الجاهزية: اختبار قصير + متابعة أسبوع أول", done: false },
+              ],
+            },
+          ],
+        },
+      ];
+
+      // ——————————————————————————————————————————————
+      const { useMemo, useState, useEffect } = React;
+
+      function calcPhaseStats(phase, stateMap) {
+        let total = 0, done = 0;
+        for (const sec of phase.sections) {
+          for (const it of sec.items) {
+            total += 1;
+            if (stateMap[it.id]) done += 1;
+          }
+        }
+        const pct = total ? Math.round((done / total) * 100) : 0;
+        return { total, done, pct };
+      }
+
+      function sectionCounts(section, stateMap) {
+        const total = section.items.length;
+        const done = section.items.reduce((a, it) => a + (stateMap[it.id] ? 1 : 0), 0);
+        return { total, done };
+      }
+
+      function ProgressBar({ value }) {
+        return (
+          <div className="w-full h-3.5 rounded-xl bg-slate-200 overflow-hidden" aria-label="نسبة الإنجاز">
+            <div
+              className="h-full rounded-xl transition-all duration-500 bg-slate-900"
+              style={{ width: `${value}%` }}
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={value}
+            />
+          </div>
+        );
+      }
+
+      function PercentPill({ value }) {
+        return (
+          <span className="px-2 py-1 rounded-lg text-xs font-bold bg-slate-900 text-white">
+            {value}%
+          </span>
+        );
+      }
+
+      function Card({ children, className = "" }) {
+        return (
+          <div className={`rounded-2xl shadow-sm border border-slate-200 bg-white/70 backdrop-blur p-5 ${className}`}>
+            {children}
+          </div>
+        );
+      }
+
+      function renderTextWithCode(text) {
+        const parts = String(text).split(/(`[^`]+`)/g);
+        return (
+          <>
+            {parts.map((p, i) => {
+              if (p.startsWith("`") && p.endsWith("`")) {
+                return (
+                  <code key={i} className="px-1.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-xs mx-0.5">
+                    {p.slice(1, -1)}
+                  </code>
+                );
+              }
+              return <span key={i}>{p}</span>;
+            })}
+          </>
+        );
+      }
+
+      function App() {
+        // Default state from PHASES
+        const defaultMap = useMemo(() => {
+          const m = {};
+          for (const ph of PHASES) {
+            for (const sec of ph.sections) {
+              for (const it of sec.items) m[it.id] = !!it.done;
+            }
+          }
+          return m;
+        }, []);
+
+        const [stateMap, setStateMap] = useState(() => {
+          try {
+            const saved = JSON.parse(localStorage.getItem("leadsPlanDone") || "{}");
+            return { ...defaultMap, ...saved };
+          } catch {
+            return { ...defaultMap };
+          }
+        });
+
+        useEffect(() => {
+          localStorage.setItem("leadsPlanDone", JSON.stringify(stateMap));
+        }, [stateMap]);
+
+        const totals = useMemo(() => {
+          let t = 0, d = 0;
+          for (const ph of PHASES) {
+            const s = calcPhaseStats(ph, stateMap);
+            t += s.total;
+            d += s.done;
+          }
+          return { total: t, done: d, pct: t ? Math.round((d / t) * 100) : 0 };
+        }, [stateMap]);
+
+        const resetAll = () =>
+          setStateMap(PHASES.reduce((acc, ph) => {
+            ph.sections.forEach(sec => sec.items.forEach(it => acc[it.id] = false));
+            return acc;
+          }, {}));
+
+        const completeAll = () =>
+          setStateMap(PHASES.reduce((acc, ph) => {
+            ph.sections.forEach(sec => sec.items.forEach(it => acc[it.id] = true));
+            return acc;
+          }, {}));
+
+        const exportJSON = () => {
+          const payload = { updatedAt: new Date().toISOString(), state: stateMap };
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "leads_automation_progress.json";
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+            <header className="border-b border-slate-200 bg-white/70 backdrop-blur">
+              <div className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">لوحة تقدم خطة إدارة الليدز</h1>
+                  <p className="text-sm md:text-base text-slate-500 mt-1">
+                    عرض مرحلي مع أشرطة تقدم لكل مرحلة — قابل للتحديث والحفظ تلقائياً
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => window.print()} className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-sm">طباعة</button>
+                  <button onClick={exportJSON} className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-sm">تصدير JSON</button>
+                  <button onClick={resetAll} className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm">إعادة التعيين</button>
+                  <button onClick={completeAll} className="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 text-sm">تحديد الكل</button>
+                </div>
+              </div>
+            </header>
+
+            <main className="max-w-6xl mx-auto px-6 py-8">
+              <Card className="mb-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <div className="text-sm text-slate-500">إجمالي التقدّم</div>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-2xl font-bold">{totals.pct}%</div>
+                      <div className="text-sm text-slate-500">({totals.done} / {totals.total}) مكتمل</div>
+                    </div>
+                  </div>
+                  <div className="grow flex items-center gap-3">
+                    <ProgressBar value={totals.pct} />
+                    <PercentPill value={totals.pct} />
+                  </div>
+                </div>
+              </Card>
+
+              <div className="grid grid-cols-1 gap-6">
+                {PHASES.map((phase) => {
+                  const stats = calcPhaseStats(phase, stateMap);
+                  return (
+                    <Card key={phase.id}>
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                        <div>
+                          <h2 className="text-lg md:text-xl font-semibold">{phase.title}</h2>
+                          <div className="text-sm text-slate-500 mt-1">
+                            نسبة الإنجاز: <span className="font-semibold">{stats.pct}%</span> — {stats.done} / {stats.total} مهمة
+                          </div>
+                        </div>
+                        <div className="md:w-96 flex items-center gap-3">
+                          <ProgressBar value={stats.pct} />
+                          <PercentPill value={stats.pct} />
+                        </div>
+                      </div>
+
+                      <div className="space-y-5">
+                        {phase.sections.map((sec) => {
+                          const cnt = sectionCounts(sec, stateMap);
+                          return (
+                            <section key={sec.id}>
+                              <div className="flex items-center justify-between mb-2">
+                                <h3 className="font-semibold text-slate-700">{sec.title}</h3>
+                                <div className="text-xs text-slate-500 whitespace-nowrap">المهام: {cnt.done} / {cnt.total}</div>
+                              </div>
+                              <ul className="space-y-2">
+                                {sec.items.map((it) => {
+                                  const checked = !!stateMap[it.id];
+                                  return (
+                                    <li key={it.id} className="flex items-start gap-3">
+                                      <input
+                                        id={it.id}
+                                        type="checkbox"
+                                        className="mt-1 h-4 w-4 accent-slate-900"
+                                        checked={checked}
+                                        onChange={() =>
+                                          setStateMap((prev) => ({ ...prev, [it.id]: !prev[it.id] }))
+                                        }
+                                        aria-label={it.text}
+                                      />
+                                      <label htmlFor={it.id} className={`select-none leading-relaxed ${checked ? "line-through text-slate-400" : ""}`}>
+                                        {renderTextWithCode(it.text)}
+                                      </label>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </section>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <div className="mt-8 text-xs text-slate-500">
+                ملاحظة: يتم حفظ الحالات محليًا في المتصفح (LocalStorage). يمكنك إعادة التعيين في أي وقت.
+              </div>
+            </main>
+
+            <footer className="mt-10 py-8 text-center text-xs text-slate-400">
+              © {new Date().getFullYear()} لوحة تقدم — خطة إدارة الليدز
+            </footer>
+          </div>
+        );
+      }
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+  </body>
+</html>

@@ -163,7 +163,7 @@
       ];
 
       // ——————————————————————————————————————————————
-      const { useMemo, useState, useEffect, useRef } = React;
+      const { useMemo, useState, useEffect } = React;
 
       function calcPhaseStats(phase, stateMap) {
         let total = 0, done = 0;
@@ -244,17 +244,17 @@
           return m;
         }, []);
 
-        // Undo history (last state)
-        const lastStateRef = useRef(null);
-        const apply = (updater) => {
-          // central setter with history
-          setStateMap(prev => {
-            const next = typeof updater === "function" ? updater(prev) : updater;
-            lastStateRef.current = prev;
-            return next;
-          });
-        };
+        // ——— تاريخ التعديلات (Undo Stack متعدد الخطوات) ———
+        const [history, setHistory] = useState([]); // كل عنصر = لقطة كاملة من stateMap
+        const MAX_HISTORY = 100;
 
+        const pushHistory = (snapshot) =>
+          setHistory(h => {
+            const capped = h.length >= MAX_HISTORY ? h.slice(1) : h;
+            return [...capped, { ...snapshot }];
+          });
+
+        // setState مركزي يضيف لقطة قبل أي تعديل
         const [stateMap, setStateMap] = useState(() => {
           try {
             const saved = JSON.parse(localStorage.getItem("leadsPlanDone") || "{}");
@@ -264,9 +264,39 @@
           }
         });
 
+        const apply = (updater) => {
+          setStateMap(prev => {
+            pushHistory(prev);
+            return typeof updater === "function" ? updater(prev) : updater;
+          });
+        };
+
+        const undo = () => {
+          setStateMap(prev => {
+            if (!history.length) return prev;
+            const last = history[history.length - 1];
+            setHistory(h => h.slice(0, -1));
+            return last;
+          });
+        };
+
+        // حفظ تلقائي
         useEffect(() => {
           localStorage.setItem("leadsPlanDone", JSON.stringify(stateMap));
         }, [stateMap]);
+
+        // اختصار لوحة المفاتيح: Ctrl+Z / ⌘Z للتراجع
+        useEffect(() => {
+          const onKey = (e) => {
+            const isUndo = (e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === "z" || e.key === "Z");
+            if (isUndo) {
+              e.preventDefault();
+              undo();
+            }
+          };
+          window.addEventListener("keydown", onKey);
+          return () => window.removeEventListener("keydown", onKey);
+        }, [history]); // نحدّث السماع عند تغيّر التاريخ
 
         const totals = useMemo(() => {
           let t = 0, d = 0;
@@ -277,14 +307,6 @@
           }
           return { total: t, done: d, pct: t ? Math.round((d / t) * 100) : 0 };
         }, [stateMap]);
-
-        const undo = () => {
-          if (lastStateRef.current) {
-            const prev = lastStateRef.current;
-            lastStateRef.current = null;
-            setStateMap(prev);
-          }
-        };
 
         const resetAll = () =>
           apply(() => PHASES.reduce((acc, ph) => {
@@ -313,36 +335,39 @@
                   </div>
 
                   <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => window.history.back()}
-                    className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-sm"
-                    aria-label="رجوع خطوة للخلف"
-                  >
-                    رجوع
-                  </button>
-                
-                  <button
-                    onClick={() => window.print()}
-                    className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-sm"
-                  >
-                    طباعة
-                  </button>
-                
-                  <button
-                    onClick={resetAll}
-                    className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm"
-                  >
-                    إعادة التعيين
-                  </button>
-                
-                  <button
-                    onClick={completeAll}
-                    className="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 text-sm"
-                  >
-                    تحديد الكل
-                  </button>
-                </div>
+                    <button
+                      onClick={undo}
+                      disabled={!history.length}
+                      className={`px-3 py-2 rounded-xl border border-slate-300 text-sm ${
+                        history.length ? "hover:bg-slate-50" : "opacity-50 cursor-not-allowed"
+                      }`}
+                      aria-label="تراجع (Ctrl+Z)"
+                      title="تراجع (Ctrl+Z)"
+                    >
+                      تراجع
+                    </button>
 
+                    <button
+                      onClick={() => window.print()}
+                      className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-sm"
+                    >
+                      طباعة
+                    </button>
+
+                    <button
+                      onClick={resetAll}
+                      className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm"
+                    >
+                      إعادة التعيين
+                    </button>
+
+                    <button
+                      onClick={completeAll}
+                      className="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 text-sm"
+                    >
+                      تحديد الكل
+                    </button>
+                  </div>
                 </div>
               </div>
             </header>
@@ -420,7 +445,7 @@
               </div>
 
               <div className="mt-8 text-xs text-slate-500">
-                ملاحظة: يتم حفظ الحالات محليًا في المتصفح (LocalStorage). يمكنك التراجع خطوة أو إعادة التعيين في أي وقت.
+                ملاحظة: يتم حفظ الحالات محليًا في المتصفح (LocalStorage). يمكن التراجع عبر الزر أو الاختصار Ctrl+Z / ⌘Z.
               </div>
             </main>
 

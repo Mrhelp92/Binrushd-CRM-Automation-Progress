@@ -2,17 +2,24 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>لوحة تقدم مشروع أتمتة الليدز</title>
+
     <!-- Tailwind via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+
     <!-- React 18 + Babel (لتشغيل JSX بدون build) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- خطوط العنوان -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@700;800&family=Tajawal:wght@700;800&display=swap" rel="stylesheet" />
+    <style>
+      .brand-title{ font-family: "Tajawal","Almarai",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Arabic",Arial,sans-serif; }
+    </style>
   </head>
   <body class="bg-slate-50 text-slate-900">
     <div id="root"></div>
@@ -156,7 +163,7 @@
       ];
 
       // ——————————————————————————————————————————————
-      const { useMemo, useState, useEffect } = React;
+      const { useMemo, useState, useEffect, useRef } = React;
 
       function calcPhaseStats(phase, stateMap) {
         let total = 0, done = 0;
@@ -237,6 +244,17 @@
           return m;
         }, []);
 
+        // Undo history (last state)
+        const lastStateRef = useRef(null);
+        const apply = (updater) => {
+          // central setter with history
+          setStateMap(prev => {
+            const next = typeof updater === "function" ? updater(prev) : updater;
+            lastStateRef.current = prev;
+            return next;
+          });
+        };
+
         const [stateMap, setStateMap] = useState(() => {
           try {
             const saved = JSON.parse(localStorage.getItem("leadsPlanDone") || "{}");
@@ -260,44 +278,71 @@
           return { total: t, done: d, pct: t ? Math.round((d / t) * 100) : 0 };
         }, [stateMap]);
 
+        const undo = () => {
+          if (lastStateRef.current) {
+            const prev = lastStateRef.current;
+            lastStateRef.current = null;
+            setStateMap(prev);
+          }
+        };
+
         const resetAll = () =>
-          setStateMap(PHASES.reduce((acc, ph) => {
+          apply(() => PHASES.reduce((acc, ph) => {
             ph.sections.forEach(sec => sec.items.forEach(it => acc[it.id] = false));
             return acc;
           }, {}));
 
         const completeAll = () =>
-          setStateMap(PHASES.reduce((acc, ph) => {
+          apply(() => PHASES.reduce((acc, ph) => {
             ph.sections.forEach(sec => sec.items.forEach(it => acc[it.id] = true));
             return acc;
           }, {}));
 
-        const exportJSON = () => {
-          const payload = { updatedAt: new Date().toISOString(), state: stateMap };
-          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = "leads_automation_progress.json";
-          a.click();
-          URL.revokeObjectURL(url);
-        };
-
         return (
           <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
             <header className="border-b border-slate-200 bg-white/70 backdrop-blur">
-              <div className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">لوحة تقدم خطة إدارة الليدز</h1>
-                  <p className="text-sm md:text-base text-slate-500 mt-1">
-                    تنفيذ: فريق تطوير م/عبدالرحمن ناصر
-                  </p>
+              <div className="max-w-6xl mx-auto px-6 py-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div className="space-y-1">
+                    <h1 className="brand-title text-2xl md:text-3xl font-extrabold tracking-tight">
+                      لوحة تقدم خطة إدارة الليدز
+                    </h1>
+                    <p className="text-sm md:text-base text-slate-500">
+                      تنفيذ: فريق تطوير م/ عبدالرحمن ناصر
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.history.back()}
+                    className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-sm"
+                    aria-label="رجوع خطوة للخلف"
+                  >
+                    رجوع
+                  </button>
+                
+                  <button
+                    onClick={() => window.print()}
+                    className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-sm"
+                  >
+                    طباعة
+                  </button>
+                
+                  <button
+                    onClick={resetAll}
+                    className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm"
+                  >
+                    إعادة التعيين
+                  </button>
+                
+                  <button
+                    onClick={completeAll}
+                    className="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 text-sm"
+                  >
+                    تحديد الكل
+                  </button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => window.print()} className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-sm">طباعة</button>
-                  <button onClick={exportJSON} className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 text-sm">تصدير JSON</button>
-                  <button onClick={resetAll} className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-sm">إعادة التعيين</button>
-                  <button onClick={completeAll} className="px-3 py-2 rounded-xl bg-slate-900 text-white hover:opacity-90 text-sm">تحديد الكل</button>
+
                 </div>
               </div>
             </header>
@@ -348,20 +393,17 @@
                               </div>
                               <ul className="space-y-2">
                                 {sec.items.map((it) => {
-                                  const checked = !!stateMap[it.id];
                                   return (
                                     <li key={it.id} className="flex items-start gap-3">
                                       <input
                                         id={it.id}
                                         type="checkbox"
                                         className="mt-1 h-4 w-4 accent-slate-900"
-                                        checked={checked}
-                                        onChange={() =>
-                                          setStateMap((prev) => ({ ...prev, [it.id]: !prev[it.id] }))
-                                        }
+                                        checked={!!stateMap[it.id]}
+                                        onChange={() => apply(prev => ({ ...prev, [it.id]: !prev[it.id] }))}
                                         aria-label={it.text}
                                       />
-                                      <label htmlFor={it.id} className={`select-none leading-relaxed ${checked ? "line-through text-slate-400" : ""}`}>
+                                      <label htmlFor={it.id} className={`select-none leading-relaxed ${stateMap[it.id] ? "line-through text-slate-400" : ""}`}>
                                         {renderTextWithCode(it.text)}
                                       </label>
                                     </li>
@@ -378,7 +420,7 @@
               </div>
 
               <div className="mt-8 text-xs text-slate-500">
-                ملاحظة: يتم حفظ الحالات محليًا في المتصفح (LocalStorage). يمكنك إعادة التعيين في أي وقت.
+                ملاحظة: يتم حفظ الحالات محليًا في المتصفح (LocalStorage). يمكنك التراجع خطوة أو إعادة التعيين في أي وقت.
               </div>
             </main>
 
